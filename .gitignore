@@ -1,0 +1,12 @@
+node_modules/
+dist/
+reports/
+contract/src/managed/
+vendor/
+*.log
+.tools/
+.secrets/
+*.seed
+.env
+ui/.vite/
+logs/

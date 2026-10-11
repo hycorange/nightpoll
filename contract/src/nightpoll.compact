@@ -1,0 +1,123 @@
+// NightPoll: anonymous community poll with double-vote protection.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Privacy model
+//  - Each member holds a local secret key `sk` (never leaves the device).
+//  - Registration publishes only commitment = H("nightpoll:member:", pollId, sk),
+//    inserted into a Merkle tree of members.
+//  - Voting proves in zero knowledge that H(..sk) is a leaf of the members tree
+//    (via a Merkle path supplied by a witness) without revealing which leaf.
+//  - A nullifier = H("nightpoll:nullifier:", pollId, sk) is published and stored;
+//    a second vote from the same key produces the same nullifier and is rejected.
+//    Commitment and nullifier use different domain tags, so they cannot be linked.
+//  - Only the chosen option is revealed (it increments a public tally).
+
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+export enum Phase {
+  REGISTRATION,
+  VOTING,
+  CLOSED
+}
+
+export sealed ledger pollId: Bytes<32>;
+export sealed ledger question: Opaque<"string">;
+export sealed ledger optionCount: Uint<8>;
+export sealed ledger selfRegistration: Boolean;
+export sealed ledger admin: Bytes<32>;
+
+export ledger phase: Phase;
+export ledger members: HistoricMerkleTree<10, Bytes<32>>;
+export ledger commitments: Set<Bytes<32>>;
+export ledger memberCount: Counter;
+export ledger nullifiers: Set<Bytes<32>>;
+export ledger tally: Map<Uint<8>, Counter>;
+export ledger totalVotes: Counter;
+
+witness localSecretKey(): Bytes<32>;
+witness findMembershipPath(commitment: Bytes<32>): MerkleTreePath<10, Bytes<32>>;
+
+constructor(id: Bytes<32>, q: Opaque<"string">, options: Uint<8>, openRegistration: Boolean) {
+  assert(options >= 2, "NightPoll: need at least 2 options");
+  pollId = disclose(id);
+  question = disclose(q);
+  optionCount = disclose(options);
+  selfRegistration = disclose(openRegistration);
+  admin = disclose(adminKey(disclose(id), localSecretKey()));
+  phase = Phase.REGISTRATION;
+}
+
+export pure circuit adminKey(id: Bytes<32>, sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "nightpoll:admin:"), id, sk]);
+}
+
+export pure circuit memberCommitment(id: Bytes<32>, sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "nightpoll:member:"), id, sk]);
+}
+
+export pure circuit voteNullifier(id: Bytes<32>, sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([pad(32, "nightpoll:nullifier:"), id, sk]);
+}
+
+circuit assertAdmin(): [] {
+  assert(admin == adminKey(pollId, localSecretKey()), "NightPoll: caller is not the admin");
+}
+
+circuit addCommitment(c: Bytes<32>): [] {
+  assert(phase == Phase.REGISTRATION, "NightPoll: registration is closed");
+  assert(!commitments.member(c), "NightPoll: already registered");
+  assert(!members.isFull(), "NightPoll: member tree is full");
+  commitments.insert(c);
+  members.insert(c);
+  memberCount.increment(1);
+}
+
+// Self-registration (only if the poll was created with openRegistration = true).
+export circuit register(): [] {
+  assert(selfRegistration, "NightPoll: self-registration disabled");
+  addCommitment(disclose(memberCommitment(pollId, localSecretKey())));
+}
+
+// Admin-curated registration: member sends their commitment off-chain.
+export circuit addMember(commitment: Bytes<32>): [] {
+  assertAdmin();
+  addCommitment(disclose(commitment));
+}
+
+export circuit openVoting(): [] {
+  assertAdmin();
+  assert(phase == Phase.REGISTRATION, "NightPoll: not in registration");
+  assert(memberCount.read() > 0, "NightPoll: no members");
+  phase = Phase.VOTING;
+}
+
+export circuit closePoll(): [] {
+  assertAdmin();
+  assert(phase == Phase.VOTING, "NightPoll: not in voting");
+  phase = Phase.CLOSED;
+}
+
+export circuit vote(choice: Uint<8>): [] {
+  assert(phase == Phase.VOTING, "NightPoll: voting is not open");
+  const c = disclose(choice);
+  assert(c < optionCount, "NightPoll: invalid option");
+
+  const sk = localSecretKey();
+  const commitment = memberCommitment(pollId, sk);
+  const path = findMembershipPath(commitment);
+  assert(path.leaf == commitment, "NightPoll: path does not match member");
+  assert(members.checkRoot(disclose(merkleTreePathRoot<10, Bytes<32>>(path))),
+         "NightPoll: not a registered member");
+
+  const nul = disclose(voteNullifier(pollId, sk));
+  assert(!nullifiers.member(nul), "NightPoll: already voted");
+  nullifiers.insert(nul);
+
+  if (!tally.member(c)) {
+    tally.insertDefault(c);
+  }
+  tally.lookup(c).increment(1);
+  totalVotes.increment(1);
+}
