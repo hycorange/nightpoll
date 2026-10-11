@@ -216,7 +216,11 @@ export class NightPollWallet implements MidnightProvider, WalletProvider {
   async ensureDust(state: FacadeState): Promise<string | undefined> {
     if (state.dust.balance(new Date()) > 0n) return undefined;
     const utxos = state.unshielded.availableCoins.filter((c) => !c.meta.registeredForDustGeneration);
-    if (utxos.length === 0) return undefined;
+    if (utxos.length === 0) {
+      // Already registered (e.g. by an earlier run) but no DUST seen yet: wait for it instead of failing later.
+      if (state.unshielded.availableCoins.length > 0) await this.waitForDustBalance();
+      return undefined;
+    }
     const ks = createKeystore(unshieldedSeed(this.seed), getNetworkId());
     const dustState = await this.wallet.dust.waitForSyncedState();
     // Per docs (guides/acquire-tokens): the first registration pays its own fee from DUST the NIGHT
@@ -228,7 +232,25 @@ export class NightPollWallet implements MidnightProvider, WalletProvider {
     const recipe = await this.wallet.registerNightUtxosForDustGeneration(utxos, ks.getPublicKey(), (p) => ks.signData(p), dustState.address);
     const txId = await this.wallet.submitTransaction(await this.wallet.finalizeRecipe(recipe));
     this.logger.info(`DUST registration tx: ${txId}; waiting for DUST balance...`);
-    await Rx.firstValueFrom(this.wallet.state().pipe(Rx.filter((s) => s.dust.balance(new Date()) > 0n), Rx.timeout(15 * 60_000)));
+    await this.waitForDustBalance();
     return txId;
+  }
+
+  /** Wait for a positive DUST balance. The dust sync stream can stall on Preview, so wait in rounds and
+   *  re-open the wallet from saved state between rounds (NP_DUST_ROUND_MIN, default 5; NP_DUST_WAIT_MIN total, default 45). */
+  async waitForDustBalance(): Promise<void> {
+    const roundMs = Number(process.env.NP_DUST_ROUND_MIN ?? 5) * 60_000;
+    const deadline = Date.now() + Number(process.env.NP_DUST_WAIT_MIN ?? 45) * 60_000;
+    for (;;) {
+      try {
+        const st = await Rx.firstValueFrom(this.wallet.state().pipe(Rx.filter((s) => s.dust.balance(new Date()) > 0n), Rx.timeout(roundMs)));
+        this.logger.info(`DUST available: ${st.dust.balance(new Date())}`);
+        return;
+      } catch (e) {
+        if (Date.now() + 60_000 > deadline) throw new Error(`no DUST balance after waiting (${e})`);
+        this.logger.warn('no DUST yet; re-opening wallet from saved state and waiting again');
+        await this.reopen();
+      }
+    }
   }
 }

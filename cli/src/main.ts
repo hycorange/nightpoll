@@ -123,6 +123,7 @@ async function e2e(providers: NightPollProviders, wallet: NightPollWallet, state
   const startedAt = new Date().toISOString();
   const dustTx = await wallet.ensureDust(state);
   if (dustTx) txs['dust-registration'] = { txId: dustTx };
+  else if (process.env.NP_DUST_REG_TX) txs['dust-registration'] = { txId: process.env.NP_DUST_REG_TX, txHash: process.env.NP_DUST_REG_HASH, blockHeight: process.env.NP_DUST_REG_BLOCK ? Number(process.env.NP_DUST_REG_BLOCK) : undefined }; // registered in an earlier run
   const question = flag('question', 'NightPoll demo: best day for the community call?')!;
   const d = await deployPoll(providers, 'admin', question, Number(flag('options', '3')), true);
   const addr = d.deployTxData.public.contractAddress;

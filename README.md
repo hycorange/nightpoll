@@ -201,25 +201,25 @@ doubleVote: rejected: ... failed assert: NightPoll: already voted
 Filled in by `scripts/demo.sh preview --readme` once the Preview wallet is funded.
 
 <!-- PREVIEW-RESULTS:START -->
-**Network:** `preview` · **run:** _pending_
+**Network:** `preview` · **run:** 2026-10-11T15:47:10.194Z → 2026-10-11T15:51:33.524Z (UTC)
 
-**Contract address:** `_pending_`
+**Contract address:** [`03aa456490ba4833c92a5fd107ffd9de6543e5cbfff5685dce99e5d92a4ca90a`](https://preview.midnightexplorer.com/contracts/03aa456490ba4833c92a5fd107ffd9de6543e5cbfff5685dce99e5d92a4ca90a)
 
 | Step | Tx hash | Block |
 |---|---|---|
-| Register NIGHT for DUST (fees) | _pending_ | |
-| Deploy poll (3 options, open registration) | _pending_ | |
-| alice self-registers (commitment only) | _pending_ | |
-| bob self-registers | _pending_ | |
-| admin adds carol's off-chain commitment | _pending_ | |
-| admin opens voting | _pending_ | |
-| anonymous vote #1 (option 0) | _pending_ | |
-| anonymous vote #2 (option 2) | _pending_ | |
-| anonymous vote #3 (option 2) | _pending_ | |
-| admin closes poll | _pending_ | |
-| alice votes again (option 1) | expected: rejected, `NightPoll: already voted` | — |
+| Register NIGHT for DUST (fees) | [`9d338404008ff18e…`](https://preview.midnightexplorer.com/transactions/9d338404008ff18ecb224002e8323dddc9371756f6ffd58a2c95888ba13e4f59) | 1252173 |
+| Deploy poll (3 options, open registration) | [`99bd34ed5c0cf769…`](https://preview.midnightexplorer.com/transactions/99bd34ed5c0cf769af24d16c13082c2f95f10dc68884ca168a2e6593c6b5c7d9) | 1252343 |
+| alice self-registers (commitment only) | [`a37f7565e3d76d3d…`](https://preview.midnightexplorer.com/transactions/a37f7565e3d76d3dfba8b7d47206f918dabcd874ce53b6189df9cf48126cf96d) | 1252351 |
+| bob self-registers | [`2cc1d773977b2a91…`](https://preview.midnightexplorer.com/transactions/2cc1d773977b2a914787c4ebfd77a294269911abf5e05bbeca54ba6487c4a408) | 1252355 |
+| admin adds carol's off-chain commitment | [`41b5e45d03286e92…`](https://preview.midnightexplorer.com/transactions/41b5e45d03286e9242a09b611a0626e43f0fee99557bb67634c1210562ed8809) | 1252360 |
+| admin opens voting | [`7912582deb76e9df…`](https://preview.midnightexplorer.com/transactions/7912582deb76e9df1845cf855af6c48451198edf3dddc525e3a0ae2b03d906b6) | 1252365 |
+| anonymous vote #1 (option 0) | [`40de0a3c90d8f39f…`](https://preview.midnightexplorer.com/transactions/40de0a3c90d8f39f87dd5b09c7f1f44e103e144dd3d4671b7ed6f63f175085d5) | 1252370 |
+| anonymous vote #2 (option 2) | [`088025fce8083534…`](https://preview.midnightexplorer.com/transactions/088025fce808353492b456bacff539c4c11271a6420e42d8f8626a795d13cbf8) | 1252374 |
+| anonymous vote #3 (option 2) | [`5e9f6d015f51675e…`](https://preview.midnightexplorer.com/transactions/5e9f6d015f51675e0fe1929954a6118eedfde25632e8494f798715f76bc7fff3) | 1252378 |
+| admin closes poll | [`5035a46d487f369b…`](https://preview.midnightexplorer.com/transactions/5035a46d487f369b9edeadd088087989a7d272f44293dd8af831a388f14eef15) | 1252383 |
+| alice votes again (option 1) | **rejected before submission:** `NightPoll: already voted` | — |
 
-**Final on-chain state:** _pending_
+**Final on-chain state:** phase `CLOSED`, 3 members, 3 votes, 3 nullifiers, tally #0=1 · #1=0 · #2=2
 <!-- PREVIEW-RESULTS:END -->
 
 Explorers: [Midnight Explorer (Preview)](https://preview.midnightexplorer.com/),
