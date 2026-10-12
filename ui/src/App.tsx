@@ -1,7 +1,7 @@
 // Minimal NightPoll viewer: reads a deployed poll's public ledger from the Preview indexer
 // and decodes it with the compiled contract's `ledger()` (compact-runtime WASM).
 // Voting from the browser via the Lace DApp connector is the next step (see README).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { ledger, Phase } from '../../contract/src/managed/nightpoll/contract/index.js';
@@ -32,6 +32,9 @@ export function App() {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
   };
+
+  // Auto-load when the page is opened with ?contract=<address> (used by the live demo link).
+  useEffect(() => { if (addr) void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const max = view ? Math.max(1, ...view.tally.map(Number)) : 1;
   return (

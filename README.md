@@ -12,8 +12,8 @@ Built for the Midnight Buildathon (AKINDO), Wave 2, by **hycorange**. License: A
 | Tests | 19 / 19 simulator tests pass (`npm test`) |
 | End-to-end | passes on a local Midnight `undeployed` network (official node, indexer and proof-server binaries) |
 | Preview testnet | contract address + tx hashes: see [Preview deployment](#preview-deployment), filled in by `scripts/demo.sh preview --readme` |
-| UI | read-only poll viewer (`ui/`), reads the live ledger from the Preview indexer |
-| Slide deck | [`docs/NightPoll-deck.pdf`](docs/NightPoll-deck.pdf) (8 slides: problem, solution, why Midnight, Preview demo, engineering, threat model + roadmap, adoption) |
+| UI | read-only poll viewer (`ui/`), reads the live ledger from the Preview indexer. **Live demo:** [hycorange.github.io/nightpoll](https://hycorange.github.io/nightpoll/?contract=03aa456490ba4833c92a5fd107ffd9de6543e5cbfff5685dce99e5d92a4ca90a) |
+| Slide deck · video | [`docs/NightPoll-deck.pdf`](docs/NightPoll-deck.pdf) (8 slides) · [demo video on YouTube](https://youtu.be/oxXoQS2ZRM4) (2:30, captions, Preview testnet run) |
 
 ---
 
@@ -224,8 +224,8 @@ Filled in by `scripts/demo.sh preview --readme` once the Preview wallet is funde
 <!-- PREVIEW-RESULTS:END -->
 
 Explorers: [Midnight Explorer (Preview)](https://preview.midnightexplorer.com/),
-[Subscan](https://midnight-preview.subscan.io/). To view the poll in the UI, run `cd ui && npx vite build && npx vite preview`
-and open `?contract=<address>`.
+[Subscan](https://midnight-preview.subscan.io/). The poll is live in the viewer at [hycorange.github.io/nightpoll](https://hycorange.github.io/nightpoll/?contract=03aa456490ba4833c92a5fd107ffd9de6543e5cbfff5685dce99e5d92a4ca90a)
+(GitHub Pages, branch `gh-pages`). To run the UI locally: `cd ui && npx vite build && npx vite preview`, then open `?contract=<address>`.
 
 ---
 
