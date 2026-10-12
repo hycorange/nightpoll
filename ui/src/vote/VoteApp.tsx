@@ -2,7 +2,7 @@
 // Wave 3 (M4) browser vote page: Lace connects + pays/approves; proving via local proof server proxy;
 // the member's NightPoll key stays in this browser; optional DUST sponsorship through the relayer.
 import { useState } from 'react';
-import { connectPreview } from './connector';
+import { connectPreview, getUnshieldedAddress } from './connector';
 import { validateTarget } from './guard';
 import { exportKey, getOrCreateKey, importKey } from './keystore';
 import { httpRelayer, submitProven, type Mode } from './submit';
@@ -31,10 +31,11 @@ export function VoteApp() {
   const target = () => { const t = validateTarget(addr); if (!t.ok) throw new Error(t.reason); return t.address; };
 
   const connect = run(async () => {
-    const c = await connectPreview(window.midnight);
+    const c = await connectPreview(window.midnight, say);
     setConn(c);
     setChain(await makeChain(c.connected, c.config, localStorage));
     say(`connected ${c.name} on ${c.config.networkId}; DUST ${(await c.connected.getDustBalance()).balance}`);
+    try { say(`unshielded address: ${(await getUnshieldedAddress(c.connected)) ?? '(none)'}`); } catch (e) { say(`unshielded address unavailable: ${e instanceof Error ? e.message : String(e)}`); }
   });
   const load = run(async () => {
     const a = target(); if (!chain) throw new Error('connect first');

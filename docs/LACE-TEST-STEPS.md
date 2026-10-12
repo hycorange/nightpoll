@@ -2,6 +2,7 @@
 
 > 只用**新建的一次性测试钱包**，里面只放测试币（tNIGHT/tDUST）。**不要导入任何真实钱包，永远不要切到 Mainnet。**
 > 任何弹窗里如果显示的网络不是 **Preview**，一律点“拒绝/Reject”。
+> **测试前先记住钱包密码**：Lace 在“Prove transaction”弹窗里点 Sign transaction 时必须输入钱包密码，忘了就没法签名。
 
 ## A. 现在就能做（只需 Chrome，不用装开发环境）
 
@@ -16,12 +17,15 @@
 6. **连接器探测**（验证 Lace 的 DApp 接口，不签任何交易）：用同一个 Chrome 资料打开
    https://hycorange.github.io/nightpoll/ ，按 F12 → Console，粘贴：
    ```js
-   const api = await window.midnight.mnLace.connect('preview');
+   // 真实 Lace 没有 window.midnight.mnLace；连接器挂在一个不固定的 key 下（rdns 为 'io.lace.wallet'，apiVersion '4.0.1'）
+   const w = Object.values(window.midnight).find(x => x.rdns === 'io.lace.wallet') ?? Object.values(window.midnight)[0];
+   console.log(w.rdns, w.apiVersion);
+   const api = await w.connect('preview');
    console.log(await api.getConfiguration());
-   console.log(await api.getDustBalance(), await api.getUnshieldedAddress());
+   console.log(await api.getDustBalance(), await api.getUnshieldedAddress()); // 只有单数 getUnshieldedAddress，没有复数版本
    console.log(typeof api.getProvingProvider, typeof api.balanceUnsealedTransaction);
    ```
-   - Lace 会弹出 **“连接/授权此网站”** 的请求：确认来源是 `hycorange.github.io`，网络是 **Preview**，再点 Authorize/Connect。这一步只是授权读取，**不是签名**。
+   - Lace 会弹出 **“Authorize DApp”** 的请求：确认来源是 `hycorange.github.io`，网络是 **Preview**，再点 Authorize/Connect。这一步只是授权读取，**不是签名**。
    - 如果弹出的是“签名/确认交易”，或者网络不是 Preview：**拒绝**。
 7. **发回给我**：Console 输出的截图或文字，要包括 `networkId`、`proverServerUri`（如果有）、DUST 余额，以及两个 `typeof` 的结果。不要发助记词。
 
@@ -59,14 +63,16 @@
     ```
     在装了 Lace 的 Chrome 资料里打开：
     **http://127.0.0.1:5173/vote.html?contract=a0164789f5836b340e0cf96b3e2d94a109de43ed5725f1db0deb390ee179768c**
-13. 点 **“1. Connect Lace”**。Lace 弹出 **连接授权**：来源 `127.0.0.1:5173`，网络 **Preview**，点 Authorize。日志里会显示 `connected … on preview`。
+13. 点 **“1. Connect Lace”**。Lace 弹出 **“Authorize DApp”**：来源 `127.0.0.1:5173`，网络 **Preview**，点 Authorize。日志里先显示 `wallet: … (rdns io.lace.wallet, api 4.0.1) via rdns io.lace.wallet`（说明用的是哪个连接器），然后是 `connected … on preview` 和 `unshielded address: mn_addr_preview1…`。
 14. 点 **“2. Load poll”**。阶段应为 `REGISTRATION`。点 **“Copy my vote key (backup)”**，把投票密钥另存一份（只存在这个浏览器里，丢了就不能投票）。
 15. **测试 1：免手续费路径（未验证的关键点）**。“Fees” 选 **relayer pays (sponsored)**，点 **“3. Register”**。证明大约需要 1 分钟。
-    - 如果 Lace 弹窗要你 **确认/签名交易**：检查网络是 **Preview**、来源是 `127.0.0.1:5173`、**手续费为 0 或没有手续费**，然后 Approve。
-    - 日志应显示 `register: sponsored ✔ tx dry-run:…（sealed by lace）`。**sealed by lace** 说明 Lace 支持 `payFees:false`；如果显示 `sealed by local-bind`，说明 Lace 拒绝了，页面改用了本地封装。
+    - Lace 弹出 **“Prove transaction”** 弹窗，显示交易预览、电路名（`register`）、合约地址，**没有手续费**一栏；按钮是 **Sign transaction** / **Deny**。先检查网络是 **Preview**、来源是 `127.0.0.1:5173`、合约地址正确。
+    - 点 **Sign transaction** → 输入钱包密码 → 日志应显示 `register: sponsored ✔ tx dry-run:…（sealed by lace）`。这说明 Lace 支持 `payFees:false`。
+    - 点 **Deny** → 页面自动改用本地封装，日志显示 `sealed locally with tx.bind()` 和 `…（sealed by local-bind）`（真实测试已确认这条路可用）。
+    - 两种都值得各测一次（先 Deny，再 Sign），把两次日志都发回来。
     - 因为是 dry-run，这一步**不会上链**。
-16. **测试 2：钱包自付（真正上链）**。“Fees” 改选 **my Lace wallet pays**，再点 **“3. Register”**。Lace 弹窗显示 **Preview** 和一笔小额 DUST 手续费，点 Approve。日志显示 `register: submitted by Lace (wallet paid)`，成员数加 1。（需要 A 部分第 5 步的 DUST。）
-17. **告诉我你已经注册了**。我会用管理员钱包执行 `openVoting`。刷新页面再点 Load poll，阶段变成 `VOTING`。选一个选项，点 **“4. Vote”**（wallet pays），在 Preview 上 Approve。投第二次应该会报 `already voted`。
+16. **测试 2：钱包自付（真正上链）**。“Fees” 改选 **my Lace wallet pays**，再点 **“3. Register”**。Lace 弹出 **“Prove transaction”**，检查 **Preview** 和一笔小额 DUST 手续费，点 **Sign transaction** 并输入钱包密码。日志显示 `register: submitted by Lace (wallet paid)`，成员数加 1。（需要 A 部分第 5 步的 DUST。）
+17. **告诉我你已经注册了**。我会用管理员钱包执行 `openVoting`。刷新页面再点 Load poll，阶段变成 `VOTING`。选一个选项，点 **“4. Vote”**（wallet pays），在 “Prove transaction” 弹窗里确认 Preview 后点 **Sign transaction**（输入密码）。投第二次应该会报 `already voted`。
 18. **发回给我**：整个日志框的文字（包括 `sealed by …` 那一行和所有 `ERROR`）、Lace 每个弹窗的截图，以及 Lace 活动记录里的交易 hash。
 
 > 真正的代付（relayer 用 DUST 付手续费并上链）需要一个有 tNIGHT/DUST 的 relayer 钱包：`npm run relayer:wallet -w @nightpoll/cli` 会生成一个一次性钱包并打印地址 → 去水龙头领币 → `NP_NETWORK=preview NP_RELAYER_SEED_FILE=.secrets/preview-relayer.seed NP_RELAYER_CONTRACTS=<地址> npm run relayer -w @nightpoll/cli`。然后在测试 1 的模式下操作即可。

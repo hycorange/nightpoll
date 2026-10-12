@@ -4,7 +4,7 @@ import { checkNetwork, DEMO_CONTRACT, validateTarget } from '../guard';
 import { decodeBech32m, fromHex, keyToHex, toHex } from '../bech32m';
 import { exportKey, getOrCreateKey, importKey, kvPrivateStateProvider, type KV } from '../keystore';
 import { httpRelayer, submitProven, type WalletLike } from '../submit';
-import { connectPreview, pickWallet } from '../connector';
+import { connectPreview, getUnshieldedAddress, pickWallet } from '../connector';
 
 const mem = (): KV & { m: Map<string, string> } => { const m = new Map<string, string>(); return { m, getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v), removeItem: (k) => void m.delete(k) }; };
 const A = 'ab'.repeat(32);
@@ -125,16 +125,33 @@ describe('httpRelayer', () => {
 
 describe('connector', () => {
   const initial = (networkId: string, apiVersion = '4.0.1') => ({ name: 'Lace', apiVersion, icon: '', rdns: '', connect: vi.fn(async () => ({ getConfiguration: async () => ({ networkId, indexerUri: '', indexerWsUri: '', substrateNodeUri: '' }) })) });
-  it('prefers mnLace, errors when none', () => {
-    const l = initial('preview'), o = initial('preview');
-    expect(pickWallet({ other: o, mnLace: l } as never).id).toBe('mnLace');
-    expect(pickWallet({ other: o } as never).id).toBe('other');
+  const rd = (rdns: string) => ({ ...initial('preview'), rdns });
+  it('prefers rdns io.lace.wallet under any key, else first with connect(), else mnLace', () => {
+    const lace = rd('io.lace.wallet'), other = rd('com.other');
+    expect(pickWallet({ 'f3a1-uuid': lace } as never)).toMatchObject({ id: 'f3a1-uuid', via: 'rdns io.lace.wallet' });
+    expect(pickWallet({ x: other, y: lace } as never).api).toBe(lace);
+    expect(pickWallet({ junk: { name: 'no connect' }, x: other } as never)).toMatchObject({ id: 'x', via: 'first entry with connect()' });
+    expect(pickWallet({ x: other, mnLace: lace } as never).api).toBe(lace);
     expect(() => pickWallet(undefined)).toThrow(/Install Lace/);
-    expect(() => pickWallet({ a: o, b: o } as never)).toThrow(/several/);
+    expect(() => pickWallet({} as never)).toThrow(/Install Lace/);
+    expect(() => pickWallet({ junk: { name: 'x' } } as never)).toThrow(/Install Lace/);
+  });
+  it('mnLace still works as fallback', () => {
+    expect(pickWallet({ mnLace: initial('preview') } as never).id).toBe('mnLace');
+  });
+  it('unshielded address: singular first, plural fallback', async () => {
+    const plural = vi.fn(async () => [{ unshieldedAddress: 'p' }]);
+    expect(await getUnshieldedAddress({ getUnshieldedAddress: async () => ({ unshieldedAddress: 's' }), getUnshieldedAddresses: plural })).toBe('s');
+    expect(plural).not.toHaveBeenCalled();
+    expect(await getUnshieldedAddress({ getUnshieldedAddresses: plural })).toBe('p');
+    expect(await getUnshieldedAddress({ getUnshieldedAddress: async () => 'mn_addr_preview1x' })).toBe('mn_addr_preview1x');
+    expect(await getUnshieldedAddress({})).toBeUndefined();
   });
   it('connects to preview only, and needs API 4.x', async () => {
     const l = initial('preview');
-    await expect(connectPreview({ mnLace: l } as never)).resolves.toMatchObject({ id: 'mnLace' });
+    const logs: string[] = [];
+    await expect(connectPreview({ k: { ...l, rdns: 'io.lace.wallet' } } as never, (m) => logs.push(m))).resolves.toMatchObject({ id: 'k', via: 'rdns io.lace.wallet' });
+    expect(logs[0]).toMatch(/io\.lace\.wallet.*4\.0\.1/);
     expect(l.connect).toHaveBeenCalledWith('preview');
     await expect(connectPreview({ mnLace: initial('mainnet') } as never)).rejects.toThrow(/Preview/);
     await expect(connectPreview({ mnLace: initial('preview', '3.1.0') } as never)).rejects.toThrow(/4\.x/);
