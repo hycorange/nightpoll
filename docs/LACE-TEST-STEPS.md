@@ -82,3 +82,8 @@
 ## 未验证的关键点
 
 - 文档表明 Lace 的 `balanceUnsealedTransaction(tx, { payFees: false })` 可以在**不付手续费**的情况下封好交易，然后由 relayer 用 `balanceFinalizedTransaction(['dust'])` 补上 DUST 手续费并提交。**这一点还没有用真实的 Lace 验证过**；本地链上已经验证过 SDK 版本的同一流程（见 WAVE3-PLAN.md §7）。如果 Lace 不支持，退路已经实现：页面自己用 `tx.bind()` 封装（NightPoll 交易不转移任何代币），再交给 relayer；如果这也失败，就先弹窗询问，再改用钱包自付。本机浏览器测试（假钱包 + 真实 proof server + 真实 relayer 校验）已经确认：本地封装的 register 交易（5502 字节）能通过 relayer 的检查。
+
+> **Live 模式说明（2026-10-13 已验证）**：dry-run relayer（`relayer:dry`）只检查、不上链，日志里的 tx 显示为 `dry-run:<字节数>`。
+> 真实代付必须用 live relayer（`npm run relayer`，带 `NP_NETWORK=preview`、`NP_RELAYER_SEED_FILE`、`NP_RELAYER_CONTRACTS`），
+> 成功时页面显示真实的 64 位 tx hash（例如 `00c90326…41f0`）。投票后“4. Vote”按钮会自动变灰并提示“already voted”。
+> 硬刷新后点击 Connect，页面会最多等 3 秒让 Lace 注入 `window.midnight`，并在日志里写出每一步。

@@ -37,12 +37,52 @@ export async function getUnshieldedAddress(c: unknown): Promise<string | undefin
 
 export function majorVersion(v: string): number { return Number(String(v).split('.')[0]); }
 
-export async function connectPreview(injected: Record<string, InitialAPI> | undefined, log: (m: string) => void = () => {}) {
-  const { id, api, via } = pickWallet(injected);
+type Injected = Record<string, InitialAPI> | undefined;
+const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Lace injects `window.midnight` from its content script, which can land after the page's first render on a hard
+ * refresh. Poll for a usable entry (default up to 3 s) instead of failing on the first look.
+ */
+export async function waitForWallet(
+  get: () => Injected,
+  { timeoutMs = 3000, intervalMs = 100, log = (_: string) => {}, sleep = sleepMs }: { timeoutMs?: number; intervalMs?: number; log?: (m: string) => void; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<Entry> {
+  let waited = 0;
+  for (;;) {
+    try {
+      const e = pickWallet(get());
+      if (waited > 0) log(`wallet injected after ~${waited} ms`);
+      return e;
+    } catch (err) {
+      if (waited >= timeoutMs) throw new Error(`No Midnight wallet found after ${timeoutMs} ms (window.midnight ${get() ? 'has no usable entry' : 'is undefined'}). Install/unlock Lace and reload the page.`);
+      if (waited === 0) log('waiting for Lace to inject window.midnight…');
+      await sleep(intervalMs);
+      waited += intervalMs;
+    }
+  }
+}
+
+/** Reject if a wallet call never settles, so the page log says so instead of hanging silently. */
+export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((res, rej) => {
+    const t = setTimeout(() => rej(new Error(`${what} did not answer within ${Math.round(ms / 1000)} s (check for a Lace popup, unlock Lace, then click Connect again)`)), ms);
+    p.then((v) => { clearTimeout(t); res(v); }, (e) => { clearTimeout(t); rej(e); });
+  });
+}
+
+export async function connectPreview(
+  injected: Injected | (() => Injected),
+  log: (m: string) => void = () => {},
+  opts: { waitMs?: number; connectTimeoutMs?: number; sleep?: (ms: number) => Promise<void> } = {},
+) {
+  const get = typeof injected === 'function' ? injected : () => injected;
+  const { id, api, via } = await waitForWallet(get, { timeoutMs: opts.waitMs ?? 3000, log, sleep: opts.sleep });
   log(`wallet: ${api.name ?? id} (key ${id}, rdns ${api.rdns || '-'}, api ${api.apiVersion}) via ${via}`);
   if (majorVersion(api.apiVersion) !== 4) throw new Error(`wallet connector API ${api.apiVersion}; this page needs 4.x`);
-  const connected: ConnectedAPI = await api.connect(REQUIRED_NETWORK);
-  const config = await connected.getConfiguration();
+  log(`connect: asking ${api.name ?? id} for "${REQUIRED_NETWORK}" (approve the Lace popup if shown)…`);
+  const connected: ConnectedAPI = await withTimeout(Promise.resolve(api.connect(REQUIRED_NETWORK)), opts.connectTimeoutMs ?? 120_000, 'Lace connect()');
+  const config = await withTimeout(Promise.resolve(connected.getConfiguration()), opts.connectTimeoutMs ?? 120_000, 'Lace getConfiguration()');
   checkNetwork(config.networkId);
   return { id, via, name: api.name, connected, config };
 }

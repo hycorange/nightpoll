@@ -7,6 +7,7 @@ import { validateTarget } from './guard';
 import { exportKey, getOrCreateKey, importKey } from './keystore';
 import { httpRelayer, submitProven, type Mode } from './submit';
 import { makeChain, type PollView } from './chain';
+import { canVote } from './voted';
 
 type Chain = Awaited<ReturnType<typeof makeChain>>;
 type Conn = Awaited<ReturnType<typeof connectPreview>>;
@@ -31,19 +32,28 @@ export function VoteApp() {
   const target = () => { const t = validateTarget(addr); if (!t.ok) throw new Error(t.reason); return t.address; };
 
   const connect = run(async () => {
-    const c = await connectPreview(window.midnight, say);
+    say('connect: clicked');
+    // Read window.midnight lazily (Lace may inject it after page load on a hard refresh).
+    const c = await connectPreview(() => window.midnight, say);
     setConn(c);
-    setChain(await makeChain(c.connected, c.config, localStorage));
+    const ch = await makeChain(c.connected, c.config, localStorage);
+    setChain(ch);
     say(`connected ${c.name} on ${c.config.networkId}; DUST ${(await c.connected.getDustBalance()).balance}`);
     try { say(`unshielded address: ${(await getUnshieldedAddress(c.connected)) ?? '(none)'}`); } catch (e) { say(`unshielded address unavailable: ${e instanceof Error ? e.message : String(e)}`); }
+    // On (re)connect, refresh the poll + local voted status if a contract is already in the box.
+    const t = validateTarget(addr);
+    if (t.ok) { const p = await ch.read(t.address); if (p) { setPoll(p); if (p.me.voted) say('this browser key has already voted in this poll'); } }
   });
   const load = run(async () => {
     const a = target(); if (!chain) throw new Error('connect first');
     const p = await chain.read(a); if (!p) throw new Error('no poll at this address on Preview');
-    getOrCreateKey(localStorage, a, rand); setPoll(p); say(`loaded poll: ${p.question} (${p.phase})`);
+    getOrCreateKey(localStorage, a, rand);
+    const p2 = (await chain.read(a)) ?? p; // re-read so the local voter status uses the (possibly new) key
+    setPoll(p2); say(`loaded poll: ${p2.question} (${p2.phase})${p2.me.registered ? '; this browser key is registered' : ''}${p2.me.voted ? '; this key has ALREADY VOTED' : ''}`);
   });
   const send = (circuit: 'register' | 'vote') => run(async () => {
     const a = target(); if (!chain || !conn) throw new Error('connect first');
+    if (circuit === 'vote') { const cur = await chain.read(a); if (cur) setPoll(cur); if (cur?.me.voted) throw new Error('already voted with this key (nullifier is on-chain)'); }
     say(`${circuit}: proving via /proof-server (can take ~1 min)…`);
     const hex = await chain.prove(a, circuit, circuit === 'vote' ? [BigInt(choice)] : []);
     say(`${circuit}: proven (${hex.length / 2} bytes); submitting in mode "${mode}"`);
@@ -55,7 +65,11 @@ export function VoteApp() {
       log: say,
     });
     say(out.via === 'relayer' ? `${circuit}: sponsored ✔ tx ${out.txId} (sealed by ${out.sealedBy})` : `${circuit}: submitted by Lace (wallet paid${out.fellBack ? ', FALLBACK' : ''})`);
-    const p = await chain.read(a); if (p) setPoll(p);
+    let p = await chain.read(a);
+    // The indexer may lag a few seconds behind the submit; after a successful vote, mark it voted locally anyway.
+    if (p && circuit === 'vote' && !p.me.voted) p = { ...p, me: { ...p.me, voted: true } };
+    if (p) setPoll(p);
+    if (circuit === 'vote') say('vote: recorded; this key has now voted (button disabled)');
   });
 
   return (
@@ -77,7 +91,8 @@ export function VoteApp() {
           <p>Phase <b>{poll.phase}</b> · members {poll.members.toString()} · votes {poll.votes.toString()} · tally [{poll.tally.join(', ')}]</p>
           <button style={btn} onClick={send('register')} disabled={busy || poll.phase !== 'REGISTRATION'}>3. Register</button>
           <select value={choice} onChange={(e) => setChoice(Number(e.target.value))}>{poll.tally.map((_, i) => <option key={i} value={i}>Option {i}</option>)}</select>{' '}
-          <button style={btn} onClick={send('vote')} disabled={busy || poll.phase !== 'VOTING'}>4. Vote</button>
+          <button style={btn} onClick={send('vote')} disabled={!canVote(poll.phase, poll.me, busy)}>4. Vote</button>
+          {poll.me.voted && <p style={{ color: '#7fd18b' }}>✔ You have already voted in this poll (checked locally: your vote nullifier is in the on-chain used-nullifier set).</p>}
           <p style={{ fontSize: 13 }}>
             <button onClick={() => { const k = exportKey(localStorage, target()); if (k) { void navigator.clipboard.writeText(k); say('vote key copied to clipboard — keep it private'); } }}>Copy my vote key (backup)</button>{' '}
             <button onClick={() => { const k = window.prompt('Paste a 64-hex vote key for this poll'); if (k) { try { importKey(localStorage, target(), k); say('key imported'); } catch (e) { say(`ERROR: ${String(e)}`); } } }}>Import key</button>

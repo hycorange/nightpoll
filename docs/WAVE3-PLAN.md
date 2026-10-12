@@ -107,8 +107,8 @@ What this fixes and what it does not:
 |---|---|---|---|
 | M1 | Relayer core: policy, HTTP service, sponsor halves in the wallet wrapper, unit tests | 0.5 d (**done in this run**) | `npm test` |
 | M2 | Sponsored register + vote end to end on the local `undeployed` chain from an **empty** voter wallet; negative cases (double vote, other contract, other circuit) | 0.5 d (spike script on `wave3`) | `npm run spike -w @nightpoll/cli` |
-| M3 | Same on Preview: fund a throwaway relayer wallet, run the relayer against a **new** Wave 3 poll (the Wave 2 contract stays untouched), publish tx hashes, show on the explorer that the vote tx carries only the relayer's DUST spend | 0.5–1 d (faucet + DUST generation wait) | explorer links |
-| M4 | Browser voting: `ui/` gets "Join (generate key) → Register → Vote". Proving via local proof server proxy (Lace) or `getProvingProvider` (1AM), binding via `balanceUnsealedTransaction({payFees:false})`, submission via relayer. Key backup/export | 2–3 d | screen recording with a throwaway Lace wallet |
+| M3 | Same on Preview: fund a throwaway relayer wallet, run the relayer against a **new** Wave 3 poll (the Wave 2 contract stays untouched), publish tx hashes, show on the explorer that the vote tx carries only the relayer's DUST spend | 0.5–1 d (faucet + DUST generation wait) | explorer links — **DONE 2026-10-13** (see §9) |
+| M4 | Browser voting: `ui/` gets "Join (generate key) → Register → Vote". Proving via local proof server proxy (Lace) or `getProvingProvider` (1AM), binding via `balanceUnsealedTransaction({payFees:false})`, submission via relayer. Key backup/export | 2–3 d | screen recording with a throwaway Lace wallet — **DONE 2026-10-13** (see §9) |
 | M5 | Hardening: per-poll budget, batching/random delay of submissions (timing), relayer logging policy (no IPs), docs + threat-model update | 1 d | THREAT-MODEL v2 |
 | M6 | Credential-gated registration (selective disclosure) | 3+ d, stretch; needs contract v2 (new deployment, separate from Wave 2) | — |
 
@@ -166,3 +166,21 @@ relayer, and the policy refuses anything that isn't a `register`/`vote` on the a
   - 17 unit tests in `ui/src/vote/test`.
 - Still unverified (needs real Lace): `balanceUnsealedTransaction(…, {payFees:false})` and the Lace approval
   prompts. See `docs/LACE-TEST-STEPS.md` part B.
+
+## 9. M3 + M4 done: real Lace, sponsored, on Preview (2026-10-13 JST)
+Test poll `a0164789f5836b340e0cf96b3e2d94a109de43ed5725f1db0deb390ee179768c` (new Wave 3 poll; Wave 2 contract untouched).
+
+| Step | Tx | Block |
+|---|---|---|
+| `register`, sponsored (relayer paid DUST), sealed by Lace (`payFees:false`) | `003834870040feb389a944c1cc163ce87e1dd6c15284c6b2bc5b6a93221a844bb8` | 1266245 |
+| `openVoting` (admin) | `0060623adcd64483a68a7dc52c8d07100390b364414f2150be4627ca08a9716415` | 1266664 |
+| `vote` option 0, sponsored, sealed by Lace → tally `[1,0,0]` | `00c903265519aaf7696c189416b3b53aca2b982e1da0822f6069c8668c9fe441f0` | — |
+| duplicate `vote` | rejected locally at proving: `failed assert: NightPoll: already voted`, no Lace popup | — |
+
+- The Lace popup showed network `preview`, the `vote` entry point and the poll contract.
+- `balanceUnsealedTransaction(…, {payFees:false})` works in real Lace, so the voter wallet pays nothing (DUST 0).
+- Follow-up fixes: the vote button is now disabled once this browser key's vote nullifier is in the on-chain
+  `nullifiers` set (computed locally, the secret never leaves the page). Connect now waits up to 3 s for Lace to
+  inject `window.midnight` and logs each step and any timeout.
+- 中文：M3（Preview 上的代付运行）和 M4（Lace 浏览器投票）已完成。voter 钱包 DUST 为 0，注册和投票的手续费都由
+  relayer 支付，Lace 只做 `payFees:false` 封装。重复投票在本地证明阶段就被合约断言拒绝。详见 `docs/WAVE3-RESULTS.md`。

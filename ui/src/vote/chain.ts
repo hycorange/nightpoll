@@ -13,7 +13,8 @@ import { Transaction } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import * as NP from '../../../contract/src/managed/nightpoll/contract/index.js';
 import { witnesses } from '../../../contract/src/witnesses';
 import { fromHex, keyToHex, toHex } from './bech32m';
-import { kvPrivateStateProvider, type KV } from './keystore';
+import { getKey, kvPrivateStateProvider, type KV } from './keystore';
+import { voterStatus, type VoterStatus } from './voted';
 
 export const PS_ID = 'nightpoll:browser';
 const Compiled = CompiledContract.make('NightPoll', NP.Contract as never).pipe(
@@ -21,7 +22,7 @@ const Compiled = CompiledContract.make('NightPoll', NP.Contract as never).pipe(
   CompiledContract.withCompiledFileAssets('/zk' as never),
 );
 
-export type PollView = { question: string; phase: string; options: number; members: bigint; votes: bigint; tally: bigint[]; selfRegistration: boolean };
+export type PollView = { question: string; phase: string; options: number; members: bigint; votes: bigint; tally: bigint[]; selfRegistration: boolean; me: VoterStatus };
 
 export async function makeChain(wallet: ConnectedAPI, config: Configuration, kv: KV, origin = location.origin) {
   setNetworkId(config.networkId);
@@ -47,7 +48,9 @@ export async function makeChain(wallet: ConnectedAPI, config: Configuration, kv:
     const l = NP.ledger(st.data);
     const tally: bigint[] = [];
     for (let i = 0n; i < l.optionCount; i++) tally.push(l.tally.member(i) ? l.tally.lookup(i).read() : 0n);
-    return { question: l.question, phase: NP.Phase[l.phase], options: Number(l.optionCount), members: l.memberCount, votes: l.totalVotes, tally, selfRegistration: l.selfRegistration };
+    // Local-only: nullifier/commitment computed here from the browser-stored key; only public state is read.
+    const me = voterStatus(l, getKey(kv, contract), NP.pureCircuits);
+    return { question: l.question, phase: NP.Phase[l.phase], options: Number(l.optionCount), members: l.memberCount, votes: l.totalVotes, tally, selfRegistration: l.selfRegistration, me };
   }
 
   /** Build + prove; returns hex of Transaction<SignatureEnabled, Proof, PreBinding> (what the connector expects). */
