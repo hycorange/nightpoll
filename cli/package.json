@@ -9,6 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "relayer": "tsx src/relayer/main.ts",
-    "spike": "tsx src/relayer/spike-localnet.ts"
+    "spike": "tsx src/relayer/spike-localnet.ts",
+    "relayer:wallet": "tsx src/relayer/new-wallet.ts",
+    "relayer:dry": "tsx src/relayer/dry-run.ts"
   }
 }

@@ -2,6 +2,27 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import wasm from 'vite-plugin-wasm';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Wave 3 dev-server helpers for the vote page (vote.html): same-origin proxies so Lace's service worker never
+// has to reach localhost directly, and the compiled ZK artifacts served under /zk.
+const ZK_DIRS = [path.resolve(__dirname, 'zk-artifacts'), path.resolve(__dirname, '../contract/src/managed/nightpoll')];
+const PROOF_SERVER = process.env.NP_PROOF_SERVER ?? 'http://127.0.0.1:6300';
+const RELAYER = process.env.NP_RELAYER_URL ?? 'http://127.0.0.1:8790';
+const zkAssets = {
+  name: 'nightpoll-zk-assets',
+  configureServer(server: { middlewares: { use: (p: string, h: (req: { url?: string }, res: { statusCode: number; setHeader(k: string, v: string): void; end(b?: Buffer | string): void }, next: () => void) => void) => void } }) {
+    server.middlewares.use('/zk', (req, res, next) => {
+      const rel = decodeURIComponent((req.url ?? '').split('?')[0]).replace(/^\/+/, '');
+      if (!/^(keys\/[A-Za-z]+\.(prover|verifier)|zkir\/[A-Za-z]+\.bzkir)$/.test(rel)) return next();
+      const f = ZK_DIRS.map((d) => path.join(d, rel)).find((x) => fs.existsSync(x));
+      if (!f) { res.statusCode = 404; return res.end('missing ZK artifact; run `npm run compact` first'); }
+      res.setHeader('content-type', 'application/octet-stream');
+      res.end(fs.readFileSync(f));
+    });
+  },
+};
 // import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 // https://vitejs.dev/config/
@@ -26,7 +47,15 @@ export default defineConfig({
       ignoreDynamicRequires: true,
     },
   },
+  server: {
+    host: '127.0.0.1',
+    proxy: {
+      '/proof-server': { target: PROOF_SERVER, changeOrigin: true, rewrite: (p) => p.replace(/^\/proof-server/, '') },
+      '/relayer': { target: RELAYER, changeOrigin: true, rewrite: (p) => p.replace(/^\/relayer/, '') },
+    },
+  },
   plugins: [
+    zkAssets,
     react(),
     // Configure WASM plugin with more options
     wasm(),

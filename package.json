@@ -47,7 +47,7 @@
   },
   "scripts": {
     "np": "npm run np -w @nightpoll/cli --",
-    "test": "npm test -w @nightpoll/contract && npm test -w @nightpoll/cli",
+    "test": "npm test -w @nightpoll/contract && npm test -w @nightpoll/cli && npm test -w @nightpoll/ui",
     "compact": "npm run compact -w @nightpoll/contract"
   }
 }

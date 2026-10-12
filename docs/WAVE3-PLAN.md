@@ -147,3 +147,22 @@ relayer, and the policy refuses anything that isn't a `register`/`vote` on the a
 - Double vote rejected at proving time (`NightPoll: already voted`), so the relayer paid nothing for it.
 - Also confirmed: the voter-side `balanceUnboundTransaction(['shielded','unshielded'])` + sign + finalize works
   with an empty wallet.
+
+## 8. M4 status: browser vote page built (2026-10-12 23:1x JST)
+- `ui/vote.html` + `ui/src/vote/*`:
+  - Connects Lace through dapp-connector v4, Preview only, connector API 4.x only.
+  - Proves through the same-origin `/proof-server` vite proxy; ZK artifacts are served at `/zk` from the
+    committed `ui/zk-artifacts`.
+  - The vote key stays in browser localStorage, with backup/import.
+  - Register/vote buttons. Fee modes: (a) wallet pays, (b) relayer pays. Mode (b) tries Lace
+    `payFees:false`, then a local `tx.bind()`, then (after the user confirms) falls back to (a).
+  - Refuses the Wave 2 demo poll.
+- New Wave 3 test poll on Preview: `a0164789f5836b340e0cf96b3e2d94a109de43ed5725f1db0deb390ee179768c`
+  (tx `6a7df865…e173`, block 1265681, open registration, 3 options).
+- Headless checks on the box (fake connector, real Preview indexer, real proof server via the proxy):
+  - The page loads the poll and proves `register` in the browser (5431 B).
+  - The fallback local bind works.
+  - The real relayer HTTP/deserialize/policy layer (`relayer:dry`) accepts it (5502 B), with no submission.
+  - 17 unit tests in `ui/src/vote/test`.
+- Still unverified (needs real Lace): `balanceUnsealedTransaction(…, {payFees:false})` and the Lace approval
+  prompts. See `docs/LACE-TEST-STEPS.md` part B.
