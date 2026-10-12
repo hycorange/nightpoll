@@ -12,6 +12,7 @@
 2. 建议新建一个 **单独的 Chrome 用户资料（Profile）** 专门做测试，在这里装 Lace，和日常浏览器隔离。
 3. 打开 Lace → **Create a new wallet（新建钱包）**。不要选 Restore/Import。把助记词抄在纸上，只用于测试。
 4. 在 Lace 里切到 **Midnight**，网络选 **Preview**（设置 → Network / Midnight → Preview）。确认页面上显示 “Preview”，不是 “Mainnet”。
+   **必须先把 Lace 切到 Preview 网络，再连接任何页面**：如果 Lace 还停在别的网络（Mainnet/Preprod 等），连接时会直接失败，报错 **`Network ID mismatch`**。遇到这个错误：在 Lace 里切到 Preview，刷新页面后重新连接。
 5. 复制 Lace 里的 **Midnight 非屏蔽地址**（以 `mn_addr_preview1…` 开头），去官方 Preview 水龙头领 tNIGHT：
    https://faucet.preview.midnight.network/ 。然后在 Lace 里把 tNIGHT 设为生成 DUST（Generate DUST / 指定 DUST 地址）。
 6. **连接器探测**（验证 Lace 的 DApp 接口，不签任何交易）：用同一个 Chrome 资料打开
