@@ -13,6 +13,7 @@ Built for the Midnight Buildathon (AKINDO), Wave 2, by **hycorange**. License: A
 | End-to-end | passes on a local Midnight `undeployed` network (official node, indexer and proof-server binaries) |
 | Preview testnet | contract address + tx hashes: see [Preview deployment](#preview-deployment), filled in by `scripts/demo.sh preview --readme` |
 | UI | read-only poll viewer (`ui/`), reads the live ledger from the Preview indexer |
+| Slide deck | [`docs/NightPoll-deck.pdf`](docs/NightPoll-deck.pdf) (8 slides: problem, solution, why Midnight, Preview demo, engineering, threat model + roadmap, adoption) |
 
 ---
 
