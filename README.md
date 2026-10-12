@@ -247,6 +247,8 @@ The CLI e2e above is the integration test against a real node, indexer and proof
 
 ## Privacy caveats (honest threat model)
 
+Full threat model, with file and line references and the tests behind it: [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md).
+
 - **Fee payer linkability.** Fees are paid in DUST by a wallet. If the same wallet sends a member's `register`
   and `vote`, an observer can link the two txs and learn who voted for what. In the demo, a single wallet pays
   for every identity. For real anonymity, the vote has to come from a wallet the member never used to register,
