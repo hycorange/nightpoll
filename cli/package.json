@@ -6,6 +6,9 @@
   "license": "Apache-2.0",
   "scripts": {
     "np": "tsx src/main.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "relayer": "tsx src/relayer/main.ts",
+    "spike": "tsx src/relayer/spike-localnet.ts"
   }
 }

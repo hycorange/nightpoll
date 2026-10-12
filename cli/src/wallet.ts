@@ -132,6 +132,25 @@ export class NightPollWallet implements MidnightProvider, WalletProvider {
     const signed = await this.wallet.signRecipe(recipe, (p) => this.keystore.signData(p));
     return this.wallet.finalizeRecipe(signed);
   }
+  // --- Wave 3: DUST sponsorship (pattern from midnightntwrk/example-private-party, docs: guides/dust-sponsorship) ---
+  /** USER side: balance only the user's own shielded/unshielded value (no DUST fee), sign, bind. */
+  async balanceOwnValueAndFinalize(tx: UnboundTransaction, ttl: Date = ttlOneHour()): Promise<FinalizedTransaction> {
+    const recipe = await this.wallet.balanceUnboundTransaction(
+      tx, { shieldedSecretKeys: this.zswapSecretKeys, dustSecretKey: this.dustSecretKey }, { ttl, tokenKindsToBalance: ['shielded', 'unshielded'] });
+    const signed = await this.wallet.signRecipe(recipe, (p) => this.keystore.signData(p));
+    return this.wallet.finalizeRecipe(signed);
+  }
+  /** SPONSOR side: add a DUST fee offer to an already bound transaction (balances DUST only), sign own additions. */
+  async addDustFeesAndFinalize(tx: FinalizedTransaction, ttl: Date = ttlOneHour()): Promise<FinalizedTransaction> {
+    const recipe = await this.wallet.balanceFinalizedTransaction(
+      tx, { shieldedSecretKeys: this.zswapSecretKeys, dustSecretKey: this.dustSecretKey }, { ttl, tokenKindsToBalance: ['dust'] });
+    const signed = await this.wallet.signRecipe(recipe, (p) => this.keystore.signData(p));
+    return this.wallet.finalizeRecipe(signed);
+  }
+  async dustBalance(): Promise<bigint> {
+    return (await Rx.firstValueFrom(this.wallet.state())).dust.balance(new Date());
+  }
+
   /**
    * Submit, then wait until the dust wallet has applied the resulting dust event. Otherwise the next tx in the
    * same process is balanced against a stale dust tree/UTXO and the node rejects it (InvalidDustSpendProof).
