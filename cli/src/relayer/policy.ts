@@ -99,3 +99,20 @@ export class RateLimiter {
     return true;
   }
 }
+
+/** Per-contract daily sponsorship budget (UTC day): number of sponsored txs and total DUST fee (specks). */
+export class DailyBudget {
+  private day = '';
+  private used = new Map<string, { count: number; dust: bigint }>();
+  constructor(private readonly maxCount: number, private readonly maxDust: bigint, private readonly now: () => number = Date.now) {}
+  private roll() { const d = new Date(this.now()).toISOString().slice(0, 10); if (d !== this.day) { this.day = d; this.used.clear(); } }
+  usage(contract: string) { this.roll(); return this.used.get(normAddr(contract)) ?? { count: 0, dust: 0n }; }
+  /** Would one more tx with this fee fit? Returns a reason when not. */
+  check(contract: string, fee: bigint): PolicyDecision {
+    const u = this.usage(contract);
+    if (u.count >= this.maxCount) return { ok: false, reason: `daily sponsorship count cap reached for ${normAddr(contract)}` };
+    if (u.dust + fee > this.maxDust) return { ok: false, reason: `daily DUST cap reached for ${normAddr(contract)}` };
+    return { ok: true };
+  }
+  record(contract: string, fee: bigint) { const u = this.usage(contract); this.used.set(normAddr(contract), { count: u.count + 1, dust: u.dust + fee }); }
+}

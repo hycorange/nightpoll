@@ -4,7 +4,7 @@
 //   user side:    build vote() call -> prove locally -> balance own value only (no DUST) -> sign -> bind -> hex
 //   sponsor side: deserialize bound tx -> policy -> add DUST fee offer (tokenKindsToBalance ['dust']) -> submit
 // The user's secret key and Merkle path never leave the user's machine; the sponsor only sees the proof.
-import { Transaction, type Binding, type Proof, type SignatureEnabled } from '@midnight-ntwrk/midnight-js-protocol/ledger';
+import { LedgerParameters, Transaction, type Binding, type Proof, type SignatureEnabled } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import { fromHex, toHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { NightPollWallet } from '../wallet.js';
 import { summarize, type TxLike, type TxSummary } from './policy.js';
@@ -23,6 +23,8 @@ export function walletSponsor(wallet: NightPollWallet, network: string): Sponsor
       return wallet.submitTx(sponsored);
     },
     dustBalance: () => wallet.dustBalance(),
+    // Estimate on the user's bound tx with initial ledger parameters (the sponsor's DUST spend adds a little on top).
+    estimateFee: (hex: string) => deserializeBound(hex).fees(LedgerParameters.initialParameters()),
   };
 }
 

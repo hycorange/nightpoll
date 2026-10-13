@@ -12,6 +12,7 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { envFor, type NetworkName, UNDEPLOYED_GENESIS_SEED } from '../config.js';
 import { NightPollWallet } from '../wallet.js';
 import { createRelayerServer } from './server.js';
+import { limitsFromEnv } from './limits.js';
 import { walletSponsor } from './sponsor.js';
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info', transport: { target: 'pino-pretty' } });
@@ -37,6 +38,7 @@ const server = createRelayerServer(walletSponsor(wallet, network), {
   allowedContracts: contracts,
   allowedEntryPoints: entryPoints,
   log: (m) => logger.info(m),
+  ...limitsFromEnv(process.env),
 });
 const port = Number(process.env.NP_RELAYER_PORT ?? 8790);
 server.listen(port, '127.0.0.1', () => logger.info(`relayer listening on http://127.0.0.1:${port} for ${contracts.join(', ')}`));

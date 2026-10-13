@@ -22,7 +22,7 @@ describe('relayer HTTP service', () => {
   let server: Server; let base: string; let calls: string[];
   beforeEach(async () => {
     calls = [];
-    server = createRelayerServer(fake(calls), { allowedContracts: [POLL], allowedEntryPoints: ['vote', 'vote!'], perClientPerWindow: 2, maxBodyBytes: 10_000 });
+    server = createRelayerServer(fake(calls), { allowedContracts: [POLL], allowedEntryPoints: ['vote', 'vote!'], perClientPerWindow: 2, maxBodyBytes: 10_000, minDustBalance: 100n, warnDustBalance: 100n });
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
