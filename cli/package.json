@@ -11,6 +11,7 @@
     "relayer": "tsx src/relayer/main.ts",
     "spike": "tsx src/relayer/spike-localnet.ts",
     "relayer:wallet": "tsx src/relayer/new-wallet.ts",
-    "relayer:dry": "tsx src/relayer/dry-run.ts"
+    "relayer:dry": "tsx src/relayer/dry-run.ts",
+    "rerun:voters": "tsx src/relayer/rerun-voters.ts"
   }
 }
