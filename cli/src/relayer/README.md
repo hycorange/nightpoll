@@ -27,3 +27,14 @@ Notes:
 - Daily counters are in memory and reset on restart and at 00:00 UTC. A budget slot is reserved before
   submission, and failed submissions still count toward it (conservative).
 - Unit tests: `cli/src/test/relayer-limits.test.ts`.
+
+## Privacy: no-IP logging and submission jitter (M5 hardening, chunk 2)
+
+**No-IP logging policy.** Relayer logs must never contain client IP addresses.
+- Every log line goes through `safeLog` (`privacy.ts`), which replaces anything that looks like an IPv4 or IPv6 address (including `::ffff:` mapped addresses) with `[ip]`. This also covers IPs inside error messages.
+- The rate limiter keys on a salted SHA-256 hash of the client IP. The salt is random per process and is never logged or saved, so the keys can't be reversed or linked across restarts. Keys only live in memory.
+- The server binds to `127.0.0.1`. If you put a reverse proxy in front, turn off its access logs or strip IPs from them too.
+
+**Submission jitter.** `NP_RELAYER_JITTER_MS` (default `0`, which means off) adds a random delay between 0 and N ms before each submission. This weakens the link between an HTTP request's timing and when the tx shows up on chain. Submissions stay serialized, so jitter also adds to queue latency. Keep it well below client timeouts.
+
+Unit tests: `cli/src/test/relayer-privacy.test.ts`. Rerun guide for the Preview flow: `scripts/e2e-rerun.sh --dry-run`.

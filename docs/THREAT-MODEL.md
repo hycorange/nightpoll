@@ -99,7 +99,21 @@ are design limitations, not deviations from the intended behaviour.
 |---|---|---|
 | 1 Fee-payer linkability | **DUST fee sponsorship / relayer**: a sponsor pays the vote fee, so the voter's wallet never appears. Until then, use a different, unlinked wallet for voting than for registering | Wave 3 (planned) |
 | 1, 7 Key handling | **Browser voting with Lace** (DApp connector): keys and proofs stay in the user's wallet and browser | Wave 3 (planned) |
-| 3 Timing | Batched or delayed vote submission, and a registration cut-off well before voting opens | roadmap |
+| 3 Timing | Random submission delay in the relayer (`NP_RELAYER_JITTER_MS`). Batching and a registration cut-off well before voting opens | delay: Wave 3. Batching: roadmap |
 | 4 Small sets | Show the member count before voting. Use polls with large member sets only for sensitive questions | operational |
 | 5, 6 Membership trust / Sybil | **Credential-gated registration** with selective disclosure (prove "member of X" instead of trusting an admin list) | Wave 3 (planned) |
 | 2 Public choice | Commit-reveal tallies (results revealed after close) for multi-question surveys | roadmap |
+
+## Threat model v2 (Wave 3: relayer)
+
+The sponsored-vote relayer removes fee-payer linkability (limitation 1), but it adds a new trusted party.
+
+| Threat | Who | Mitigation | Residual risk |
+|---|---|---|---|
+| Relayer links IP ↔ vote tx | relayer operator, log leak | No-IP logging policy (IPs redacted, rate-limit keys are salted hashes that are never saved) | The operator can still watch live traffic. Use Tor or a VPN for sensitive polls |
+| Timing correlation (request → on-chain tx) | network observer, operator | `NP_RELAYER_JITTER_MS` random delay, with serialized submission | Small polls with few voters still leak timing. Batching is on the roadmap |
+| DUST drain / griefing | anyone | Allowlist, circuit policy, max fee, daily caps, per-client and global rate limits, DUST floor (chunk 1) | Rotating IPs can use up the daily cap (liveness, not safety) |
+| Censorship | relayer operator | Voters can always submit and pay the fee themselves | That fallback brings back fee-payer linkability |
+| Relayer key compromise | attacker on the host | Throwaway wallet holding only DUST-generating NIGHT. The seed comes from an uncommitted file | Loss is capped by the wallet balance |
+
+The relayer can never change a vote, forge membership, or double-vote. The tx is proven and bound before the relayer sees it, and the contract enforces nullifiers.
