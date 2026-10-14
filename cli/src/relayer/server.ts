@@ -5,7 +5,8 @@
 //   GET  /health        -> { status, network, dust }
 //   POST /sponsor/vote  -> { tx: "<hex of FinalizedTransaction>" }  =>  { ok: true, txId } | { ok: false, error }
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { hashClient, jitterDelay, safeLog } from './privacy.js';
+import { clientKeyFor, jitterDelay, safeLog } from './privacy.js';
+import { SubmissionMixer } from './batch.js';
 import { checkPolicy, DailyBudget, RateLimiter, type PolicyConfig, type TxSummary } from './policy.js';
 
 export interface Sponsor {
@@ -30,8 +31,11 @@ export type RelayerOptions = PolicyConfig & {
   minDustBalance?: bigint;     // refuse sponsorship (503) below this floor
   warnDustBalance?: bigint;    // /health reports 'degraded' below this (default 2 x floor)
   clientKey?: (req: IncomingMessage) => string;
+  trustProxy?: boolean;        // key rate limits on the right-most X-Forwarded-For hop (only behind your own proxy)
   log?: (msg: string) => void; // always wrapped with IP redaction
   jitterMs?: number;           // max random delay before submission (default 0 = off)
+  batchMs?: number;            // mixing window: hold accepted votes this long, then submit in random order (0 = off)
+  batchMax?: number;           // flush the window early once this many are waiting (default 8)
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 };
@@ -52,8 +56,9 @@ export function createRelayerServer(sponsor: Sponsor, opts: RelayerOptions): Ser
   const floor = opts.minDustBalance ?? DEFAULT_LIMITS.minDustBalance;
   const warn = opts.warnDustBalance ?? floor * 2n;
   const log = safeLog(opts.log ?? (() => {}));
-  const keyOf = opts.clientKey ?? ((r: IncomingMessage) => hashClient(r.socket.remoteAddress ?? 'unknown'));
-  let queue: Promise<unknown> = Promise.resolve(); // one submission at a time (avoids DUST double-spend, error 196)
+  const keyOf = opts.clientKey ?? clientKeyFor(opts.trustProxy ?? false);
+  // One submission at a time (avoids DUST double-spend, error 196); optional mixing window shuffles the order.
+  const mixer = new SubmissionMixer<string>(opts.batchMs ?? 0, opts.batchMax ?? 8);
 
   const send = (res: ServerResponse, status: number, body: unknown) => {
     if (res.writableEnded) return;
@@ -89,8 +94,7 @@ export function createRelayerServer(sponsor: Sponsor, opts: RelayerOptions): Ser
       if (!limiter.take(keyOf(req))) { send(res, 429, { ok: false, error: 'rate limit exceeded' }); return; }
       if ((await sponsor.dustBalance()) < floor) { log('refused: DUST below floor'); send(res, 503, { ok: false, error: 'relayer DUST balance too low' }); return; }
       budget.record(contract, fee); // reserve before submitting (concurrent requests can't overshoot the cap)
-      const job = queue.then(() => jitterDelay(opts.jitterMs ?? 0, Math.random, opts.sleep)).then(() => sponsor.sponsorAndSubmit(txHex as string));
-      queue = job.catch(() => undefined);
+      const job = mixer.submit(() => jitterDelay(opts.jitterMs ?? 0, Math.random, opts.sleep).then(() => sponsor.sponsorAndSubmit(txHex as string)));
       try { const txId = await job; log(`sponsored vote tx ${txId}`); send(res, 200, { ok: true, txId }); }
       catch (e) { log(`submit failed: ${String(e)}`); send(res, 502, { ok: false, error: 'submission failed' }); }
     })();

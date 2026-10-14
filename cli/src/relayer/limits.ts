@@ -3,7 +3,10 @@
 //   NP_RELAYER_PER_CLIENT (per IP per window, 3)  NP_RELAYER_GLOBAL (per window, 60)  NP_RELAYER_WINDOW_MS (600000)
 //   NP_RELAYER_MAX_FEE (specks per tx)  NP_RELAYER_DAILY_TX (per contract, 500)  NP_RELAYER_DAILY_DUST (specks per contract)
 //   NP_RELAYER_MIN_DUST (refuse below)  NP_RELAYER_WARN_DUST (/health degraded below; default 2 x MIN)
-import { jitterFromEnv } from './privacy.js';
+//   NP_RELAYER_JITTER_MS (privacy.ts)  NP_RELAYER_BATCH_MS / NP_RELAYER_BATCH_MAX (batch.ts mixing window)
+//   NP_RELAYER_TRUST_PROXY=1 (rate-limit key from right-most X-Forwarded-For hop; only behind your own proxy)
+import { batchFromEnv } from './batch.js';
+import { jitterFromEnv, trustProxyFromEnv } from './privacy.js';
 import type { RelayerOptions } from './server.js';
 
 const big = (v: string | undefined, name: string): bigint | undefined => {
@@ -29,6 +32,8 @@ export function limitsFromEnv(env: Record<string, string | undefined>): Partial<
     minDustBalance: big(env.NP_RELAYER_MIN_DUST, 'NP_RELAYER_MIN_DUST'),
     jitterMs: jitterFromEnv(env) || undefined,
     warnDustBalance: big(env.NP_RELAYER_WARN_DUST, 'NP_RELAYER_WARN_DUST'),
+    ...batchFromEnv(env),
+    trustProxy: trustProxyFromEnv(env) || undefined,
   };
   for (const k of Object.keys(o) as (keyof typeof o)[]) if (o[k] === undefined) delete o[k];
   return o;

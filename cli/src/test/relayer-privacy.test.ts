@@ -1,3 +1,4 @@
+import { clientKeyFor, trustProxyFromEnv, hashClient as hc } from '../relayer/privacy.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
@@ -70,5 +71,25 @@ describe('submission jitter', () => {
     const st = await fetch(`${base}/sponsor/vote`, { method: 'POST', body: JSON.stringify({ tx: wire(`${A}:vote:0`) }) }).then((r) => r.status);
     expect(st).toBe(200); expect(order).toEqual(['sleep', 'submit']);
     expect(slept[0]).toBeGreaterThanOrEqual(0); expect(slept[0]).toBeLessThanOrEqual(300);
+  });
+});
+
+describe('reverse-proxy client key', () => {
+  const salt = Buffer.alloc(32, 7);
+  const req = (xff?: string) => ({ socket: { remoteAddress: '127.0.0.1' }, headers: xff === undefined ? {} : { 'x-forwarded-for': xff } });
+  it('ignores X-Forwarded-For unless trusted', () => {
+    expect(clientKeyFor(false, salt)(req('1.2.3.4'))).toBe(hc('127.0.0.1', salt));
+  });
+  it('uses the right-most hop when trusted (left-most is spoofable)', () => {
+    const k = clientKeyFor(true, salt);
+    expect(k(req('9.9.9.9, 1.2.3.4'))).toBe(hc('1.2.3.4', salt));
+    expect(k(req('6.6.6.6, 1.2.3.4'))).toBe(k(req('1.2.3.4')));
+    expect(k(req())).toBe(hc('127.0.0.1', salt));
+    expect(k(req('1.2.3.4'))).not.toContain('1.2.3.4');
+  });
+  it('env flag', () => {
+    expect(trustProxyFromEnv({})).toBe(false);
+    expect(trustProxyFromEnv({ NP_RELAYER_TRUST_PROXY: '1' })).toBe(true);
+    expect(trustProxyFromEnv({ NP_RELAYER_TRUST_PROXY: 'yes' })).toBe(false);
   });
 });

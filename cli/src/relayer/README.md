@@ -33,8 +33,20 @@ Notes:
 **No-IP logging policy.** Relayer logs must never contain client IP addresses.
 - Every log line goes through `safeLog` (`privacy.ts`), which replaces anything that looks like an IPv4 or IPv6 address (including `::ffff:` mapped addresses) with `[ip]`. This also covers IPs inside error messages.
 - The rate limiter keys on a salted SHA-256 hash of the client IP. The salt is random per process and is never logged or saved, so the keys can't be reversed or linked across restarts. Keys only live in memory.
-- The server binds to `127.0.0.1`. If you put a reverse proxy in front, turn off its access logs or strip IPs from them too.
+- The server binds to `127.0.0.1`. If you put a reverse proxy in front, turn off its access logs or strip IPs from them too (see below).
 
 **Submission jitter.** `NP_RELAYER_JITTER_MS` (default `0`, which means off) adds a random delay between 0 and N ms before each submission. This weakens the link between an HTTP request's timing and when the tx shows up on chain. Submissions stay serialized, so jitter also adds to queue latency. Keep it well below client timeouts.
 
-Unit tests: `cli/src/test/relayer-privacy.test.ts`. Rerun guide for the Preview flow: `scripts/e2e-rerun.sh --dry-run`.
+**Behind a reverse proxy (nginx / Caddy).** Two things change when the relayer sits behind a proxy:
+- *Logs.* The proxy, not the relayer, now sees client IPs. Turn its access log off for the relayer route (nginx `access_log off;`, Caddy: no `log` directive on that site) or log a fixed placeholder instead of `$remote_addr`. Error logs can also include client IPs; set them to `crit` or send them to `/dev/null` on this route.
+- *Rate limits.* Every request now arrives from the proxy's address, so the per-client limit would turn into one shared bucket. Set `NP_RELAYER_TRUST_PROXY=1` and the relayer keys on the right-most `X-Forwarded-For` hop, which is the one your own proxy appended (hops further left are client-controlled and are ignored). The hop is hashed with the per-process salt and is never logged. Only turn this on when the relayer can be reached solely through that proxy; otherwise a client could send its own header. With it off (the default), the global per-window cap and daily caps still apply.
+
+## Batching: mixing window (M5 hardening, chunk 3)
+
+Merging several members' votes into one ledger transaction is not possible: ledger-v8 `Transaction.merge` throws when both transactions have contract interactions, and every vote is a contract call. So the relayer batches at the submission level instead.
+- `NP_RELAYER_BATCH_MS` (default `0`, which means off) holds accepted votes for up to N ms, then submits them in random order (Fisher-Yates shuffle, `batch.ts`). `NP_RELAYER_BATCH_MAX` (default `8`) flushes the window early once that many are waiting.
+- Each vote is still its own transaction, and submissions stay one at a time, so the sponsor never double-spends DUST. Jitter, if set, still applies before each submission.
+- Each HTTP caller waits until its own vote is submitted and gets its own tx id back, so keep `BATCH_MS + BATCH_MAX x (proof submit time + JITTER_MS)` well below the UI's request timeout.
+- What it buys: an observer can no longer match "request k" to "tx k" by order within a window. What it doesn't: with very few voters per window, timing still leaks. Policy, rate limits, and caps are all checked before a vote enters the window.
+
+Unit tests: `cli/src/test/relayer-privacy.test.ts`, `cli/src/test/relayer-batch.test.ts`. Rerun guide for the Preview flow: `scripts/e2e-rerun.sh --dry-run`.

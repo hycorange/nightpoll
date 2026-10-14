@@ -36,3 +36,24 @@ export function jitterDelay(maxMs: number, rand: () => number = Math.random,
   const ms = Math.floor(rand() * (maxMs + 1));
   return sleep(ms).then(() => ms);
 }
+
+/**
+ * Client key for rate limiting. Behind a reverse proxy every request comes from the proxy's address, so the
+ * per-client limit would collapse into one shared bucket. With NP_RELAYER_TRUST_PROXY=1 the key is taken from the
+ * right-most X-Forwarded-For hop (the one your own proxy appended; left-most hops are client-controlled).
+ * Only enable this when the relayer is reachable solely through that proxy. The value is hashed like a socket IP
+ * and never logged.
+ */
+export function clientKeyFor(trustProxy: boolean, salt: Buffer = PROCESS_SALT) {
+  return (req: { socket: { remoteAddress?: string }; headers: Record<string, string | string[] | undefined> }): string => {
+    let ip = req.socket.remoteAddress ?? 'unknown';
+    if (trustProxy) {
+      const h = req.headers['x-forwarded-for'];
+      const hops = (Array.isArray(h) ? h.join(',') : h ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+      if (hops.length > 0) ip = hops[hops.length - 1];
+    }
+    return hashClient(ip, salt);
+  };
+}
+
+export const trustProxyFromEnv = (env: Record<string, string | undefined>): boolean => env.NP_RELAYER_TRUST_PROXY === '1';
