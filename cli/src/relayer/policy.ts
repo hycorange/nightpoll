@@ -98,6 +98,12 @@ export class RateLimiter {
     cur.n++; this.global.n++; this.hits.set(key, cur);
     return true;
   }
+  /** Give back one slot (used when the node rejected a tx as stale before anything was spent). */
+  refund(key: string): void {
+    const h = this.hits.get(key);
+    if (h && h.n > 0) h.n--;
+    if (this.global.n > 0) this.global.n--;
+  }
 }
 
 /** Per-contract daily sponsorship budget (UTC day): number of sponsored txs and total DUST fee (specks). */
@@ -115,4 +121,9 @@ export class DailyBudget {
     return { ok: true };
   }
   record(contract: string, fee: bigint) { const u = this.usage(contract); this.used.set(normAddr(contract), { count: u.count + 1, dust: u.dust + fee }); }
+  /** Undo a reservation whose tx never landed (e.g. stale proof, nothing spent). */
+  release(contract: string, fee: bigint) {
+    const u = this.usage(contract);
+    this.used.set(normAddr(contract), { count: Math.max(0, u.count - 1), dust: u.dust > fee ? u.dust - fee : 0n });
+  }
 }

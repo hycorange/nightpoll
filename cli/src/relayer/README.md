@@ -50,3 +50,15 @@ Merging several members' votes into one ledger transaction is not possible: ledg
 - What it buys: an observer can no longer match "request k" to "tx k" by order within a window. What it doesn't: with very few voters per window, timing still leaks. Policy, rate limits, and caps are all checked before a vote enters the window.
 
 Unit tests: `cli/src/test/relayer-privacy.test.ts`, `cli/src/test/relayer-batch.test.ts`. Rerun guide for the Preview flow: `scripts/e2e-rerun.sh --dry-run`.
+
+## Stale proofs (node error 104)
+
+If other votes land between proving and submission, the node rejects the vote with
+`1010: Invalid Transaction: Custom error: 104` (seen live in the M5 Preview rerun). Nothing is spent, so the relayer:
+
+- answers `409 { ok: false, code: "STALE_PROOF", retryable: true, error: "proof is stale … re-prove …" }` instead of a plain 502;
+- gives back the client's rate-limit slot and the contract's daily budget reservation, so the resend is not blocked.
+
+The vote page (`ui/src/vote/submit.ts`, `submitWithReprove`) shows 「证明已过期，请重新生成」, re-reads the poll, rebuilds and
+re-proves against the current state and resends **once**. Only a second stale rejection is shown as an error. It does not fall
+back to wallet-pays on a stale proof (that would fail the same way). Detection: `cli/src/relayer/stale.ts`.

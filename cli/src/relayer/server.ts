@@ -4,9 +4,12 @@
 //
 //   GET  /health        -> { status, network, dust }
 //   POST /sponsor/vote  -> { tx: "<hex of FinalizedTransaction>" }  =>  { ok: true, txId } | { ok: false, error }
+//     409 { ok: false, error, code: 'STALE_PROOF', retryable: true }  when the node says "Custom error: 104"
+//     (proof built against an older state; re-prove and resend; the rate-limit slot and budget are given back)
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { clientKeyFor, jitterDelay, safeLog } from './privacy.js';
 import { SubmissionMixer } from './batch.js';
+import { isStaleProofError, STALE_PROOF_CODE, STALE_PROOF_MESSAGE } from './stale.js';
 import { checkPolicy, DailyBudget, RateLimiter, type PolicyConfig, type TxSummary } from './policy.js';
 
 export interface Sponsor {
@@ -91,12 +94,21 @@ export function createRelayerServer(sponsor: Sponsor, opts: RelayerOptions): Ser
       const contract = summary.calls[0].address;
       const b = budget.check(contract, fee);
       if (!b.ok) { log(`rejected: ${b.reason}`); send(res, 429, { ok: false, error: b.reason }); return; }
-      if (!limiter.take(keyOf(req))) { send(res, 429, { ok: false, error: 'rate limit exceeded' }); return; }
+      const clientKey = keyOf(req);
+      if (!limiter.take(clientKey)) { send(res, 429, { ok: false, error: 'rate limit exceeded' }); return; }
       if ((await sponsor.dustBalance()) < floor) { log('refused: DUST below floor'); send(res, 503, { ok: false, error: 'relayer DUST balance too low' }); return; }
       budget.record(contract, fee); // reserve before submitting (concurrent requests can't overshoot the cap)
       const job = mixer.submit(() => jitterDelay(opts.jitterMs ?? 0, Math.random, opts.sleep).then(() => sponsor.sponsorAndSubmit(txHex as string)));
       try { const txId = await job; log(`sponsored vote tx ${txId}`); send(res, 200, { ok: true, txId }); }
-      catch (e) { log(`submit failed: ${String(e)}`); send(res, 502, { ok: false, error: 'submission failed' }); }
+      catch (e) {
+        if (isStaleProofError(e)) {
+          budget.release(contract, fee); limiter.refund(clientKey);
+          log('submit rejected: stale proof (104), client asked to re-prove');
+          send(res, 409, { ok: false, error: STALE_PROOF_MESSAGE, code: STALE_PROOF_CODE, retryable: true });
+          return;
+        }
+        log(`submit failed: ${String(e)}`); send(res, 502, { ok: false, error: 'submission failed' });
+      }
     })();
   });
 }

@@ -58,4 +58,8 @@ What this shows:
   `1010: Invalid Transaction: Custom error: 104`. Re-proving it against the updated state and resending succeeded. Likely cause:
   the vote's proof/transcript was built on contract state that two other votes had already changed by the time it was
   submitted (the registers did not hit this). Follow-up: the relayer should return a distinct "stale, re-prove" error for 104,
-  and the page should re-prove and resend once automatically. Until then a member simply clicks Vote again.
+  and the page should re-prove and resend once automatically. **Done (follow-up commit):** the relayer now answers 104 with
+  `409 { code: "STALE_PROOF", retryable: true }` and gives back the rate-limit slot and daily budget (nothing was spent); the
+  vote page shows 「证明已过期，请重新生成」, re-reads the poll, rebuilds + re-proves and resends exactly once (wallet mode too,
+  when Lace surfaces the 104). A second stale rejection is shown to the user instead of looping. Unit-tested
+  (`cli/src/test/relayer-stale.test.ts`, `ui/src/vote/test/stale-proof.test.ts`); not yet re-run live on Preview.

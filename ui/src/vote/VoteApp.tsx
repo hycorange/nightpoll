@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { connectPreview, getUnshieldedAddress } from './connector';
 import { validateTarget } from './guard';
 import { exportKey, getOrCreateKey, importKey } from './keystore';
-import { httpRelayer, submitProven, type Mode } from './submit';
+import { httpRelayer, STALE_PROOF_NOTICE, submitProven, submitWithReprove, type Mode } from './submit';
 import { makeChain, type PollView } from './chain';
 import { canVote } from './voted';
 
@@ -23,11 +23,16 @@ export function VoteApp() {
   const [choice, setChoice] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const say = (m: string) => setLog((l) => [...l, `${new Date().toLocaleTimeString()} ${m}`]);
 
   const run = (f: () => Promise<void>) => async () => {
-    setBusy(true);
-    try { await f(); } catch (e) { say(`ERROR: ${e instanceof Error ? e.message : String(e)}`); } finally { setBusy(false); }
+    setBusy(true); setNotice(null);
+    try { await f(); } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      if (m.startsWith(STALE_PROOF_NOTICE)) setNotice(m);
+      say(`ERROR: ${m}`);
+    } finally { setBusy(false); }
   };
   const target = () => { const t = validateTarget(addr); if (!t.ok) throw new Error(t.reason); return t.address; };
 
@@ -54,16 +59,28 @@ export function VoteApp() {
   const send = (circuit: 'register' | 'vote') => run(async () => {
     const a = target(); if (!chain || !conn) throw new Error('connect first');
     if (circuit === 'vote') { const cur = await chain.read(a); if (cur) setPoll(cur); if (cur?.me.voted) throw new Error('already voted with this key (nullifier is on-chain)'); }
-    say(`${circuit}: proving via /proof-server (can take ~1 min)…`);
-    const hex = await chain.prove(a, circuit, circuit === 'vote' ? [BigInt(choice)] : []);
-    say(`${circuit}: proven (${hex.length / 2} bytes); submitting in mode "${mode}"`);
-    const out = await submitProven(mode, hex, {
+    const prove = async () => {
+      say(`${circuit}: proving via /proof-server (can take ~1 min)…`);
+      const hex = await chain.prove(a, circuit, circuit === 'vote' ? [BigInt(choice)] : []);
+      say(`${circuit}: proven (${hex.length / 2} bytes); submitting in mode "${mode}"`);
+      return hex;
+    };
+    const submit = (hex: string) => submitProven(mode, hex, {
       wallet: conn.connected,
       relayer: httpRelayer(`${location.origin}/relayer`),
       localBind: chain.localBind,
       confirmFallback: async (r) => window.confirm(`Sponsored submit failed:\n${r}\n\nPay the fee from your own Lace wallet instead? (your wallet then appears as the fee payer)`),
       log: say,
     });
+    // Stale proof (node error 104): show the notice, then rebuild + re-prove + resend once automatically.
+    const { out, retried } = await submitWithReprove(prove, submit, {
+      onStale: (n) => { setNotice(`${n}（正在自动重新生成并重试一次…）`); say(`${circuit}: ${n} — other votes landed first; re-proving against the current state (auto-retry 1/1)`); },
+      beforeRetry: async () => {
+        const cur = await chain.read(a); if (cur) setPoll(cur);
+        if (circuit === 'vote' && cur?.me.voted) throw new Error('already voted with this key (nullifier is on-chain)');
+      },
+    });
+    if (retried) { setNotice(null); say(`${circuit}: re-proven and resent successfully`); }
     say(out.via === 'relayer' ? `${circuit}: sponsored ✔ tx ${out.txId} (sealed by ${out.sealedBy})` : `${circuit}: submitted by Lace (wallet paid${out.fellBack ? ', FALLBACK' : ''})`);
     let p = await chain.read(a);
     // The indexer may lag a few seconds behind the submit; after a successful vote, mark it voted locally anyway.
@@ -76,6 +93,7 @@ export function VoteApp() {
     <main style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '40px auto', padding: 16, color: '#e8e8f0', background: '#0d0d1a', borderRadius: 12 }}>
       <h1 style={{ marginTop: 0 }}>🌙 NightPoll — vote (Wave 3, Preview only)</h1>
       <p style={{ opacity: 0.8 }}>Use a throwaway Lace wallet on Midnight Preview. Your vote key is stored only in this browser.</p>
+      {notice && <p role="alert" style={{ background: '#3a2a10', color: '#ffd27a', padding: 8, borderRadius: 6 }}>⚠ {notice}</p>}
       <button style={btn} onClick={connect} disabled={busy}>{conn ? `Connected (${conn.config.networkId})` : '1. Connect Lace'}</button>
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <input value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="NEW poll contract address (hex)" style={{ flex: 1, padding: 8 }} />
