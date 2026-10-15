@@ -262,6 +262,43 @@ Full threat model, with file and line references and the tests behind it: [`docs
 - **Key custody.** Losing the secret key means losing the ability to vote. Leaking it lets someone else use your
   vote. Keys live in the encrypted LevelDB private-state store.
 
+## Wave 3: wallet-less voting through a relayer
+
+**What's new**
+- **Wallet-less relayer voting.** A member proves `register` / `vote` locally (proof server on their machine), seals the
+  tx without paying fees, and POSTs it to a relayer. The relayer only accepts calls to allow-listed contracts and entry
+  points, adds DUST fees from a sponsor wallet and submits. The voter's wallet never appears on chain; with
+  `rerun:voters` the member needs no wallet at all. Lace works too (`balanceUnsealedTransaction(…, {payFees:false})`).
+- **Jitter + mixing window.** `NP_RELAYER_JITTER_MS` adds a random delay before each submit; `NP_RELAYER_BATCH_MS` /
+  `NP_RELAYER_BATCH_MAX` hold accepted votes for a window and submit them in shuffled order (still one tx each:
+  ledger `Transaction.merge` refuses two contract calls). Live Preview rerun: 3 simultaneous requests landed as 1, 0, 2.
+- **Stale-proof recovery.** A vote proven before other votes land can be rejected by the node with `Custom error: 104`.
+  The relayer answers `409 {code: "STALE_PROOF", retryable: true}` and gives back the rate-limit slot and budget; the
+  vote page shows 证明已过期，请重新生成, re-proves against the current state and resends **once**.
+- No-IP logging (salted client keys, IPs redacted), optional `NP_RELAYER_TRUST_PROXY=1` (right-most X-Forwarded-For hop).
+
+**How to run**
+```bash
+npm ci && npm test --workspaces                    # contract 38, cli 51, ui 38 tests
+NP_RELAYER_JITTER_MS=6000 NP_RELAYER_BATCH_MS=15000 NP_RELAYER_BATCH_MAX=8 \
+  npm run relayer -w @nightpoll/cli                # sponsor relayer
+npm run rerun:voters -w @nightpoll/cli             # 3 wallet-less members vote at once (see docs/WAVE3-RESULTS.md)
+```
+Browser path with Lace: see `docs/LACE-TEST-STEPS.md`. Full live results with tx ids: `docs/WAVE3-RESULTS.md`.
+
+**Privacy properties**
+- Ballot secrecy and one-member-one-vote come from the ZK proof + nullifier (unchanged from Wave 2).
+- Fee payer is the sponsor, so the voter's wallet/DUST address is not linked to the vote.
+- Request order ≠ on-chain order inside a mixing window; timing is blurred by jitter.
+- The relayer sees request metadata (IP, timing) but logs no IPs.
+
+**Limitations**
+- The relayer is a trusted-for-liveness party: it can censor or delay votes (not forge or read them).
+- Mixing only helps when several votes arrive in the same window; a lone vote is still timing-linkable.
+- Submission is serialized (one sponsor DUST spend at a time): ~20 s per tx on Preview, so throughput is low.
+- Stale-proof retry is once; under heavy contention a vote may need a manual retry.
+- Preview testnet only; not audited.
+
 ## Roadmap
 
 **Wave 3**
