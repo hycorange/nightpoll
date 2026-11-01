@@ -29,7 +29,23 @@ Preview testnet only; not audited.
 Payout address (EVM): `0x2e75d927b3f475e95445cd9a33e49083a460d573`
 (Grants go to the address registered on the AKINDO team page; must be set there before the deadline — not done yet.)
 
-## Deadline / eligibility (UNVERIFIED)
-- Wave 3 build Oct 27 – **Nov 16, 2026**; judging Nov 16 – 27 (https://midnight.network/hackathon/buildathon).
-  **Exact time and timezone unverified**; plan to submit by Nov 15 JST.
-- KYC: **unverified.** Program text mentions eligibility/compliance checks; if KYC applies it is likely at payout, not submission.
+## Changes since the Wave 2 submission
+Wave 2 (submitted 2026-10-12, Preview contract `03aa4564…a90a`, unchanged) shipped private register/vote/tally with a
+CLI and a GitHub Pages page. Everything in "What's new in Wave 3" above was built in the Wave 3 window on branch
+`wave3`; `main`, `gh-pages` and the deployed contract were not modified.
+
+## AKINDO required items (checked 2026-11-01 against the AKINDO Wave-hack page)
+| Required | Where | Status |
+| --- | --- | --- |
+| Public GitHub repo | `hycorange/nightpoll`, branch `wave3` | remote at `c89f687`; 2 local commits (tests, README, slides, demo) not pushed |
+| README: project, setup, architecture, Midnight integration, how to test | `README.md` Wave 3 section | done |
+| Slide deck | `media/wave3/slides.pdf` | done |
+| Demo / video pitch | `media/wave3/demo.mp4` (2:01) | local file; upload link pending |
+| Progress during this Wave | "What's new in Wave 3" | done |
+| Changes since previous submission | section above | done |
+
+## Deadline / eligibility
+- Wave 3 build Oct 27 – **Nov 16, 2026**; judging Nov 16 – 27. AKINDO: "The end of each Build Period is the applicable
+  Submission Deadline"; the exact time is shown on the AKINDO submission page — **re-check there**; plan to submit by
+  Nov 15 JST.
+- KYC: not stated in the public program text; if a check applies it is at payout, not submission.
