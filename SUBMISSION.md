@@ -14,8 +14,8 @@ members can vote **without a wallet**: a sponsor relayer pays the DUST fee.
 - Tests: contract 38 · cli 51 · ui 38.
 
 ## Links
-- Repo: `<PLACEHOLDER: public GitHub URL — wave3 not yet pushed>`
-- Demo video (≤3 min): `<PLACEHOLDER: upload URL>`; local file `media/wave3/demo.mp4` (2:01). Terminal parts are a **local**
+- Repo: https://github.com/hycorange/nightpoll/tree/wave3 (branch `wave3`)
+- Demo video (≤3 min, 2:01): https://github.com/hycorange/nightpoll/releases/download/wave3-demo/nightpoll-wave3-demo.mp4 (release [`wave3-demo`](https://github.com/hycorange/nightpoll/releases/tag/wave3-demo)); same file in repo at `media/wave3/demo.mp4`. Terminal parts are a **local**
   recording (tests run live); Preview results are **replayed** from `docs/WAVE3-RESULTS.md`; UI shots are from the
   2026-10-13 JST live Preview run.
 - Slides: `media/wave3/slides.pdf` · Live results: `docs/WAVE3-RESULTS.md` · Threat model: `docs/THREAT-MODEL.md`
@@ -37,10 +37,10 @@ CLI and a GitHub Pages page. Everything in "What's new in Wave 3" above was buil
 ## AKINDO required items (checked 2026-11-01 against the AKINDO Wave-hack page)
 | Required | Where | Status |
 | --- | --- | --- |
-| Public GitHub repo | `hycorange/nightpoll`, branch `wave3` | remote at `c89f687`; 2 local commits (tests, README, slides, demo) not pushed |
+| Public GitHub repo | `hycorange/nightpoll`, branch `wave3` | pushed |
 | README: project, setup, architecture, Midnight integration, how to test | `README.md` Wave 3 section | done |
 | Slide deck | `media/wave3/slides.pdf` | done |
-| Demo / video pitch | `media/wave3/demo.mp4` (2:01) | local file; upload link pending |
+| Demo / video pitch | [demo video (2:01)](https://github.com/hycorange/nightpoll/releases/download/wave3-demo/nightpoll-wave3-demo.mp4) · `media/wave3/demo.mp4` | done |
 | Progress during this Wave | "What's new in Wave 3" | done |
 | Changes since previous submission | section above | done |
 

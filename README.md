@@ -13,7 +13,7 @@ Built for the Midnight Buildathon (AKINDO), Wave 2, by **hycorange**. License: A
 | End-to-end | passes on a local Midnight `undeployed` network (official node, indexer and proof-server binaries) |
 | Preview testnet | contract address + tx hashes: see [Preview deployment](#preview-deployment), filled in by `scripts/demo.sh preview --readme` |
 | UI | read-only poll viewer (`ui/`), reads the live ledger from the Preview indexer. **Live demo:** [hycorange.github.io/nightpoll](https://hycorange.github.io/nightpoll/?contract=03aa456490ba4833c92a5fd107ffd9de6543e5cbfff5685dce99e5d92a4ca90a) |
-| Slide deck · video | [`docs/NightPoll-deck.pdf`](docs/NightPoll-deck.pdf) (8 slides) · [demo video on YouTube](https://youtu.be/oxXoQS2ZRM4) (2:30, captions, Preview testnet run) |
+| Slide deck · video | [`docs/NightPoll-deck.pdf`](docs/NightPoll-deck.pdf) (8 slides) · [demo video on YouTube](https://youtu.be/oxXoQS2ZRM4) (2:30, captions, Preview testnet run) · [Wave 3 demo video](https://github.com/hycorange/nightpoll/releases/download/wave3-demo/nightpoll-wave3-demo.mp4) (2:01, relayer voting) |
 
 ---
 
@@ -285,6 +285,9 @@ NP_RELAYER_JITTER_MS=6000 NP_RELAYER_BATCH_MS=15000 NP_RELAYER_BATCH_MAX=8 \
 npm run rerun:voters -w @nightpoll/cli             # 3 wallet-less members vote at once (see docs/WAVE3-RESULTS.md)
 ```
 Browser path with Lace: see `docs/LACE-TEST-STEPS.md`. Full live results with tx ids: `docs/WAVE3-RESULTS.md`.
+
+**Demo video (2:01):** [nightpoll-wave3-demo.mp4](https://github.com/hycorange/nightpoll/releases/download/wave3-demo/nightpoll-wave3-demo.mp4) (release [`wave3-demo`](https://github.com/hycorange/nightpoll/releases/tag/wave3-demo)). Terminal parts are a local
+recording (tests run live); Preview results are replayed from `docs/WAVE3-RESULTS.md`.
 
 **Privacy properties**
 - Ballot secrecy and one-member-one-vote come from the ZK proof + nullifier (unchanged from Wave 2).
