@@ -19,7 +19,7 @@ members can vote **without a wallet**: a sponsor relayer pays the DUST fee.
   recording (tests run live); Preview results are **replayed** from `docs/WAVE3-RESULTS.md`; UI shots are from the
   2026-10-13 JST live Preview run.
 - Slides: `media/wave3/slides.pdf` · Live results: `docs/WAVE3-RESULTS.md` · Threat model: `docs/THREAT-MODEL.md`
-- Hosted page (gh-pages): `<PLACEHOLDER>`
+- Hosted page (gh-pages, Wave 2 build, unchanged): https://hycorange.github.io/nightpoll/?contract=03aa456490ba4833c92a5fd107ffd9de6543e5cbfff5685dce99e5d92a4ca90a — the Wave 3 relayer flow runs from branch `wave3` (see README).
 
 ## Limitations
 Relayer can delay/censor (not forge or read votes); lone votes stay timing-linkable; submits are serialized (~20 s/tx);
@@ -27,7 +27,7 @@ Preview testnet only; not audited.
 
 ## Payout
 Payout address (EVM): `0x2e75d927b3f475e95445cd9a33e49083a460d573`
-(Grants go to the address registered on the AKINDO team page; must be set there before the deadline — not done yet.)
+(Set as the Wallet Address in the AKINDO user profile.)
 
 ## Changes since the Wave 2 submission
 Wave 2 (submitted 2026-10-12, Preview contract `03aa4564…a90a`, unchanged) shipped private register/vote/tally with a
